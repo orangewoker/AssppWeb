@@ -12,3 +12,8 @@ icon.jpg
 references
 compose*.yml
 .DS_Store
+
+data
+frontend/scripts/unicorn-wasm-patch/unicorn-src
+frontend/scripts/unicorn-wasm-patch/build
+frontend/scripts/unicorn-wasm-patch/dist

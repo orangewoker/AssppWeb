@@ -137,3 +137,8 @@ references/
 mnt/
 tunnel/
 deploy.sh
+
+# SAP engine rebuild intermediates
+frontend/scripts/unicorn-wasm-patch/unicorn-src/
+frontend/scripts/unicorn-wasm-patch/build/
+frontend/scripts/unicorn-wasm-patch/dist/

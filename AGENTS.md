@@ -417,3 +417,7 @@ URL.revokeObjectURL(blobUrl);
 ```
 
 **Exceptions**: Routes that the backend explicitly skips auth for (`/auth/*`, `/install/*`) may use plain links — e.g., `itms-services://` install URLs are fine since `/install/*` is public.
+
+## SAP login signing
+
+Apple authentication is signed in the browser by the SAP WASM Worker. The backend only serves digest-pinned public assets at /api/sap-assets. Wisp additionally allows fpinit.itunes.apple.com and s.mzstatic.com on port 443. Never move signing or credential-bearing requests to the backend. SapStatus is the shared signing progress component. See docs/login-fix.md for provenance and deployment verification.
