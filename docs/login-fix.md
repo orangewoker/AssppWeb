@@ -45,9 +45,11 @@ Apple 资源；签名及带密码的请求仍在浏览器中处理，通过 Wisp
 - 前端 112 项单元测试、前后端生产构建通过；新增 SAP Wisp 白名单测试通过。
 - Apple 公开资源实际下载、四个摘要校验、WASM 引擎初始化和真实 SAP 密钥交换通过。
 - 相同虚构账号请求：不签名 HTTP 403，签名 HTTP 200 plist。
-- Windows 后端原有 IPA 注入测试有 5 项因缺少 `zip` 可执行程序失败；Dockerfile 已安装 zip。
+- GitHub Linux 环境前端 112 项、后端 50 项测试全部通过（Windows 缺少 zip 的 5 项也已在 Linux 验证）。
 - 独立 TypeScript 检查仍报告原有 `frontend/src/utils/crypto.ts:30` 的 BufferSource 类型问题。
-- 尚未在飞牛构建镜像，尚未使用真实账号验证。
+- GitHub Actions 已构建并发布 amd64 / arm64 镜像，匿名读取 latest manifest 成功；尚未在飞牛运行或使用真实账号验证。
+- 成功构建：<https://github.com/orangewoker/AssppWeb/actions/runs/39110983883>。
+- 飞牛图形界面安装及更新步骤见 [fnos-install.md](fnos-install.md)。
 
 ## 引擎来源
 
