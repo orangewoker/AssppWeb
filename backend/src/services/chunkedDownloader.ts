@@ -167,17 +167,19 @@ export class ChunkedDownloader {
 
   /** Merge all .part files into the final destination. */
   private async mergeChunks(chunkCount: number): Promise<void> {
-    const ws = fs.createWriteStream(this.destPath);
-    for (let i = 0; i < chunkCount; i++) {
-      const partPath = `${this.destPath}.part${i}`;
-      const rs = fs.createReadStream(partPath);
-      await pipeline(rs, ws, { end: false });
+    const destPath = this.destPath;
+    async function* parts() {
+      for (let i = 0; i < chunkCount; i++) {
+        const rs = fs.createReadStream(`${destPath}.part${i}`);
+        try {
+          for await (const chunk of rs) yield chunk;
+        } finally {
+          rs.destroy();
+        }
+      }
     }
-    ws.end();
-    await new Promise<void>((resolve, reject) => {
-      ws.on("finish", resolve);
-      ws.on("error", reject);
-    });
+    // One pipeline owns the output stream for the whole merge.
+    await pipeline(Readable.from(parts()), fs.createWriteStream(destPath));
 
     this.cleanPartFiles(chunkCount);
   }

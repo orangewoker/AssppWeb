@@ -56,10 +56,10 @@ describe('store connection failover', () => {
       expect(vi.mocked(appleRequest).mock.calls[1][0].host).toBe(version ? 'downloaddispatch.itunes.apple.com' : 'buy.itunes.apple.com');
     },
   );
-  it.each(cases)('%s stops after two empty responses', async (_name, run) => {
+  it.each(cases)('%s stops after exhausting endpoints', async (_name, run, version) => {
     vi.mocked(appleRequest).mockResolvedValue({ ...ok, body: buildPlist({}) });
     await expect(run()).rejects.toThrow();
-    expect(appleRequest).toHaveBeenCalledTimes(2);
+    expect(appleRequest).toHaveBeenCalledTimes(version ? 2 : 3);
   });
   it.each(cases)(
     '%s preserves Apple explanations without retry',
@@ -107,10 +107,10 @@ describe('store connection failover', () => {
       if (version) expect(payload.appExtVrsId).toBe('111');
     },
   );
-  it.each(cases)('%s stops if backup also fails', async (_name, run) => {
+  it.each(cases)('%s stops if backups also fail', async (_name, run, version) => {
     vi.mocked(appleRequest).mockRejectedValue(new Error('error code 35'));
     await expect(run()).rejects.toThrow('error code 35');
-    expect(appleRequest).toHaveBeenCalledTimes(2);
+    expect(appleRequest).toHaveBeenCalledTimes(version ? 2 : 3);
   });
   it.each(cases)('%s preserves non-transport failures', async (_name, run) => {
     vi.mocked(appleRequest).mockRejectedValue(
@@ -130,8 +130,22 @@ describe('store connection failover', () => {
         .mockResolvedValueOnce(ok);
       await run();
       expect(appleRequest).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(appleRequest).mock.calls[1][0].host).toBe('downloaddispatch.itunes.apple.com');
     },
   );
+  it.each([cases[0], cases[2]])('%s reaches dispatch after both volume stores are empty', async (_name, run) => {
+    vi.mocked(appleRequest)
+      .mockResolvedValueOnce({ ...ok, body: buildPlist({ songList: [] }) })
+      .mockResolvedValueOnce({ ...ok, body: buildPlist({ songList: [] }) })
+      .mockResolvedValueOnce(ok);
+    await run();
+    expect(vi.mocked(appleRequest).mock.calls.map(([r]) => r.host)).toEqual([
+      'p7-buy.itunes.apple.com', 'buy.itunes.apple.com', 'downloaddispatch.itunes.apple.com',
+    ]);
+    const payload = parsePlist(vi.mocked(appleRequest).mock.calls[2][0].body!);
+    expect(payload.salableAdamId).toBe(123);
+    expect(payload.appExtVrsId).toBeUndefined();
+  });
   it('does not classify authentication or parsing errors as connection failures', () => {
     for (const error of [
       '2034',

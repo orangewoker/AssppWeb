@@ -39,6 +39,16 @@ export async function getDownloadInfo(
   let requestHost = endpoint.host;
   let requestPath = endpoint.path;
   let triedRedownload = false;
+  let triedLegacy = false;
+  const nextEndpoint = (forceRedownload = false) => {
+    if (triedRedownload) return undefined;
+    if (!forceRedownload && !externalVersionId && !triedLegacy) {
+      triedLegacy = true;
+      return legacyVolumeStoreEndpoint(deviceId);
+    }
+    triedRedownload = true;
+    return redownloadEndpoint(deviceId);
+  };
   let cookies = [...account.cookies];
   let redirectAttempt = 0;
 
@@ -74,11 +84,7 @@ export async function getDownloadInfo(
     } catch (error) {
       if (triedRedownload || !isRetryableStoreConnectionError(error))
         throw error;
-      triedRedownload = true;
-      endpoint =
-        externalVersionId
-          ? redownloadEndpoint(deviceId)
-          : legacyVolumeStoreEndpoint(deviceId);
+      endpoint = nextEndpoint()!;
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;
@@ -106,11 +112,7 @@ export async function getDownloadInfo(
       shouldRetryEmptyStoreResponse(dict, response.status) &&
       !triedRedownload
     ) {
-      triedRedownload = true;
-      endpoint =
-        externalVersionId
-          ? redownloadEndpoint(deviceId)
-          : legacyVolumeStoreEndpoint(deviceId);
+      endpoint = nextEndpoint()!;
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;
@@ -127,10 +129,7 @@ export async function getDownloadInfo(
       // volumeStore intermittently returns 5002; retry once via the
       // redownload dispatch endpoint, which serves the same payload.
       if (failureType === RETRYABLE_FAILURE_TYPE && !triedRedownload) {
-        triedRedownload = true;
-        endpoint = externalVersionId
-          ? redownloadEndpoint(deviceId)
-          : legacyVolumeStoreEndpoint(deviceId);
+        endpoint = nextEndpoint(true)!;
         requestHost = endpoint.host;
         requestPath = endpoint.path;
         redirectAttempt = 0;
@@ -170,7 +169,7 @@ export async function getDownloadInfo(
     const songList = dict.songList as Record<string, any>[] | undefined;
     if (!Array.isArray(songList) || songList.length === 0) {
       throw new DownloadError(
-        `${i18n.t('errors.download.noItems')} (${requestHost}; HTTP ${response.status}; ${triedRedownload ? 'fallback attempted' : 'primary'})`,
+        `${i18n.t('errors.download.noItems')} (${requestHost}; HTTP ${response.status}; ${triedRedownload || triedLegacy ? 'fallback attempted' : 'primary'})`,
       );
     }
 

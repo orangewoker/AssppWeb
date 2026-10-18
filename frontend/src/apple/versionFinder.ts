@@ -27,6 +27,16 @@ export async function listVersions(
   let requestHost = endpoint.host;
   let requestPath = endpoint.path;
   let triedRedownload = false;
+  let triedLegacy = false;
+  const nextEndpoint = (forceRedownload = false) => {
+    if (triedRedownload) return undefined;
+    if (!forceRedownload && !triedLegacy) {
+      triedLegacy = true;
+      return legacyVolumeStoreEndpoint(deviceId);
+    }
+    triedRedownload = true;
+    return redownloadEndpoint(deviceId);
+  };
   let cookies = [...account.cookies];
   let redirectAttempt = 0;
 
@@ -58,8 +68,7 @@ export async function listVersions(
     } catch (error) {
       if (triedRedownload || !isRetryableStoreConnectionError(error))
         throw error;
-      triedRedownload = true;
-      endpoint = legacyVolumeStoreEndpoint(deviceId);
+      endpoint = nextEndpoint()!;
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;
@@ -87,8 +96,7 @@ export async function listVersions(
       shouldRetryEmptyStoreResponse(dict, response.status) &&
       !triedRedownload
     ) {
-      triedRedownload = true;
-      endpoint = legacyVolumeStoreEndpoint(deviceId);
+      endpoint = nextEndpoint()!;
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;
@@ -107,8 +115,7 @@ export async function listVersions(
         // volumeStore intermittently returns 5002; retry once via the
         // redownload dispatch endpoint, which serves the same payload.
         if (failureType === RETRYABLE_FAILURE_TYPE && !triedRedownload) {
-          triedRedownload = true;
-          endpoint = legacyVolumeStoreEndpoint(deviceId);
+          endpoint = nextEndpoint(true)!;
           requestHost = endpoint.host;
           requestPath = endpoint.path;
           redirectAttempt = 0;
