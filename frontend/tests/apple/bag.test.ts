@@ -38,6 +38,24 @@ describe('apple/bag', () => {
     },
   );
 
+  it.each(['root', 'nested'])('retains download URLs and SAP from %s bag', async (location) => {
+    const values = {
+      redownloadProduct: 'https://downloaddispatch.itunes.apple.com/r/redownload',
+      updateProduct: 'https://downloaddispatch.itunes.apple.com/up/updateProduct',
+      'sign-sap-setup': 'https://fpinit.itunes.apple.com/setup',
+      'sign-sap-setup-cert': 'https://s.mzstatic.com/cert',
+      'sign-sap-version': 200,
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, text: async () => buildPlist(location === 'root' ? values : { urlBag: values }),
+    }));
+    const result = await fetchBag('test-device');
+    expect(result.updateURL).toBe(values.updateProduct);
+    expect(result.redownloadURL).toBe(values.redownloadProduct);
+    expect(result.sapEndpoints?.version).toBe(200);
+    expect(result.authURL).toBe(defaultAuthURL);
+  });
+
   it('parses authenticateAccount from urlBag', async () => {
     const xml = buildPlist({
       urlBag: {

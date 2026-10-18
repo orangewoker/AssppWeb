@@ -1,21 +1,5 @@
-import { appleRequest } from './request';
-import {
-  parseStoreResponse,
-  storeResponseMessage,
-  shouldRetryEmptyStoreResponse,
-} from './storeResponse';
-import { isRetryableStoreConnectionError } from './storeConnection';
-import { buildPlist } from './plist';
-import { extractAndMergeCookies } from './cookies';
-import {
-  RETRYABLE_FAILURE_TYPE,
-  legacyVolumeStoreEndpoint,
-  redownloadEndpoint,
-  volumeStoreEndpoint,
-} from './config';
-
+import { downloadProduct } from './downloadProduct';
 import type { Account, Software, VersionMetadata } from '../types';
-import type { AppleResponse } from './request';
 
 export async function getVersionMetadata(
   account: Account,
@@ -25,139 +9,23 @@ export async function getVersionMetadata(
   metadata: VersionMetadata;
   updatedCookies: typeof account.cookies;
 }> {
-  const deviceId = account.deviceIdentifier;
-
-  let endpoint = volumeStoreEndpoint(account.pod, deviceId);
-  let requestHost = endpoint.host;
-  let requestPath = endpoint.path;
-  let triedRedownload = false;
-  let cookies = [...account.cookies];
-  let redirectAttempt = 0;
-
-  while (redirectAttempt <= 3) {
-    const payload: Record<string, any> = {
-      creditDisplay: '',
-      guid: deviceId,
-      salableAdamId: app.id,
-      [endpoint.externalVersionIdKey]: versionId,
-    };
-
-    const plistBody = buildPlist(payload);
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/x-apple-plist',
-      'iCloud-DSID': account.directoryServicesIdentifier,
-      'X-Dsid': account.directoryServicesIdentifier,
-    };
-
-    let response: AppleResponse;
-    try {
-      response = await appleRequest({
-        method: 'POST',
-        host: requestHost,
-        path: requestPath,
-        headers,
-        body: plistBody,
-        cookies,
-      });
-    } catch (error) {
-      if (triedRedownload || !isRetryableStoreConnectionError(error))
-        throw error;
-      triedRedownload = true;
-      endpoint = versionId
-        ? redownloadEndpoint(deviceId)
-        : legacyVolumeStoreEndpoint(deviceId);
-      requestHost = endpoint.host;
-      requestPath = endpoint.path;
-      redirectAttempt = 0;
-      continue;
-    }
-
-    cookies = extractAndMergeCookies(response.rawHeaders, cookies);
-
-    if (response.status === 302) {
-      const location = response.headers['location'];
-      if (!location) {
-        throw new Error('Failed to retrieve redirect location');
-      }
-      const url = new URL(location);
-      requestHost = url.hostname;
-      requestPath = url.pathname + url.search;
-      redirectAttempt++;
-      continue;
-    }
-
-    const dict = parseStoreResponse(response, requestHost);
-
-    const responseMessage = storeResponseMessage(dict);
-    if (
-      shouldRetryEmptyStoreResponse(dict, response.status) &&
-      !triedRedownload
-    ) {
-      triedRedownload = true;
-      endpoint = versionId
-        ? redownloadEndpoint(deviceId)
-        : legacyVolumeStoreEndpoint(deviceId);
-      requestHost = endpoint.host;
-      requestPath = endpoint.path;
-      redirectAttempt = 0;
-      continue;
-    }
-    if (!Array.isArray(dict.songList) || dict.songList.length === 0) {
-      if (responseMessage && !dict.failureType)
-        throw new Error(responseMessage);
-    }
-
-    // volumeStore intermittently returns 5002; retry once via the redownload
-    // dispatch endpoint, which serves the same payload.
-    if (
-      String(dict.failureType ?? '') === RETRYABLE_FAILURE_TYPE &&
-      !triedRedownload
-    ) {
-      triedRedownload = true;
-      endpoint = versionId
-        ? redownloadEndpoint(deviceId)
-        : legacyVolumeStoreEndpoint(deviceId);
-      requestHost = endpoint.host;
-      requestPath = endpoint.path;
-      redirectAttempt = 0;
-      continue;
-    }
-
-    const songList = dict.songList as Record<string, any>[] | undefined;
-    if (!Array.isArray(songList) || songList.length === 0) {
-      throw new Error('No items in response');
-    }
-
-    const item = songList[0];
-    const itemMetadata = item.metadata as Record<string, any>;
-    if (!itemMetadata) {
-      throw new Error('Missing metadata');
-    }
-
-    const bundleShortVersionString =
-      itemMetadata.bundleShortVersionString as string;
-    if (!bundleShortVersionString) {
-      throw new Error('Missing bundleShortVersionString');
-    }
-
-    const rawReleaseDate = itemMetadata.releaseDate;
-    if (!rawReleaseDate) {
-      throw new Error('Missing releaseDate');
-    }
-    const releaseDate =
-      rawReleaseDate instanceof Date
-        ? rawReleaseDate.toISOString()
-        : String(rawReleaseDate);
-
-    return {
-      metadata: {
-        displayVersion: bundleShortVersionString,
-        releaseDate,
-      },
-      updatedCookies: cookies,
-    };
-  }
-
-  throw new Error('Too many redirects');
+  const { dict, updatedCookies } = await downloadProduct(
+    account,
+    app,
+    versionId,
+  );
+  const metadata = dict.songList[0].metadata;
+  if (!metadata?.bundleShortVersionString)
+    throw new Error('Missing bundleShortVersionString');
+  if (!metadata.releaseDate) throw new Error('Missing releaseDate');
+  return {
+    metadata: {
+      displayVersion: metadata.bundleShortVersionString,
+      releaseDate:
+        metadata.releaseDate instanceof Date
+          ? metadata.releaseDate.toISOString()
+          : String(metadata.releaseDate),
+    },
+    updatedCookies,
+  };
 }
