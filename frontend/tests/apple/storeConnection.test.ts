@@ -100,7 +100,9 @@ describe('store connection failover', () => {
         .mocked(appleRequest)
         .mock.calls.map(([request]) => request);
       expect(first.host).toBe('p7-buy.itunes.apple.com');
-      expect(second.host).toBe('downloaddispatch.itunes.apple.com');
+      expect(second.host).toBe(
+        version ? 'downloaddispatch.itunes.apple.com' : 'buy.itunes.apple.com',
+      );
       expect(second.cookies).toEqual(account.cookies);
       expect(second.headers?.['X-Dsid']).toBe('123');
       const payload = parsePlist(second.body!);
