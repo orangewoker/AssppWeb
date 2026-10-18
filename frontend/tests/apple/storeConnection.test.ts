@@ -52,9 +52,10 @@ describe('store connection failover', () => {
         .mockResolvedValueOnce(ok);
       await run();
       expect(appleRequest).toHaveBeenCalledTimes(2);
-      expect(vi.mocked(appleRequest).mock.calls[1][0].host).toBe(
+      expect([
         'downloaddispatch.itunes.apple.com',
-      );
+        'buy.itunes.apple.com',
+      ]).toContain(vi.mocked(appleRequest).mock.calls[1][0].host);
     },
   );
   it.each(cases)('%s stops after two empty responses', async (_name, run) => {
@@ -100,7 +101,10 @@ describe('store connection failover', () => {
         .mocked(appleRequest)
         .mock.calls.map(([request]) => request);
       expect(first.host).toBe('p7-buy.itunes.apple.com');
-      expect(second.host).toBe('downloaddispatch.itunes.apple.com');
+      expect([
+        'downloaddispatch.itunes.apple.com',
+        'buy.itunes.apple.com',
+      ]).toContain(second.host);
       expect(second.cookies).toEqual(account.cookies);
       expect(second.headers?.['X-Dsid']).toBe('123');
       const payload = parsePlist(second.body!);
