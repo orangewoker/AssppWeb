@@ -9,6 +9,7 @@ import { buildPlist } from './plist';
 import { extractAndMergeCookies } from './cookies';
 import {
   RETRYABLE_FAILURE_TYPE,
+  legacyVolumeStoreEndpoint,
   redownloadEndpoint,
   volumeStoreEndpoint,
 } from './config';
@@ -63,7 +64,9 @@ export async function getVersionMetadata(
       if (triedRedownload || !isRetryableStoreConnectionError(error))
         throw error;
       triedRedownload = true;
-      endpoint = redownloadEndpoint(deviceId);
+      endpoint = versionId
+        ? redownloadEndpoint(deviceId)
+        : legacyVolumeStoreEndpoint(deviceId);
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;
@@ -92,7 +95,9 @@ export async function getVersionMetadata(
       !triedRedownload
     ) {
       triedRedownload = true;
-      endpoint = redownloadEndpoint(deviceId);
+      endpoint = versionId
+        ? redownloadEndpoint(deviceId)
+        : legacyVolumeStoreEndpoint(deviceId);
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;
@@ -110,7 +115,9 @@ export async function getVersionMetadata(
       !triedRedownload
     ) {
       triedRedownload = true;
-      endpoint = redownloadEndpoint(deviceId);
+      endpoint = versionId
+        ? redownloadEndpoint(deviceId)
+        : legacyVolumeStoreEndpoint(deviceId);
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;
