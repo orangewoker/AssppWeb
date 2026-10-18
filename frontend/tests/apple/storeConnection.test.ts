@@ -55,7 +55,6 @@ describe('store connection failover', () => {
       expect(vi.mocked(appleRequest).mock.calls[1][0].host).toBe(
         version ? 'downloaddispatch.itunes.apple.com' : 'buy.itunes.apple.com',
       );
-  );
   it.each(cases)('%s stops after two empty responses', async (_name, run) => {
     vi.mocked(appleRequest).mockResolvedValue({ ...ok, body: buildPlist({}) });
     await expect(run()).rejects.toThrow();
