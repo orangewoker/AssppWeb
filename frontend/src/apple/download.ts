@@ -1,10 +1,11 @@
 import { appleRequest } from './request';
 import {
+  parseStoreResponse,
   storeResponseMessage,
   shouldRetryEmptyStoreResponse,
 } from './storeResponse';
 import { isRetryableStoreConnectionError } from './storeConnection';
-import { buildPlist, parsePlist } from './plist';
+import { buildPlist } from './plist';
 import { extractAndMergeCookies } from './cookies';
 import {
   RETRYABLE_FAILURE_TYPE,
@@ -94,7 +95,7 @@ export async function getDownloadInfo(
       continue;
     }
 
-    const dict = parsePlist(response.body) as Record<string, any>;
+    const dict = parseStoreResponse(response, requestHost);
 
     const responseMessage = storeResponseMessage(dict);
     if (
