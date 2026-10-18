@@ -76,7 +76,7 @@ export async function getDownloadInfo(
         throw error;
       triedRedownload = true;
       endpoint =
-        externalVersionId || 'VERSION_ID_PLACEHOLDER'
+        externalVersionId
           ? redownloadEndpoint(deviceId)
           : legacyVolumeStoreEndpoint(deviceId);
       requestHost = endpoint.host;
@@ -108,7 +108,7 @@ export async function getDownloadInfo(
     ) {
       triedRedownload = true;
       endpoint =
-        externalVersionId || 'VERSION_ID_PLACEHOLDER'
+        externalVersionId
           ? redownloadEndpoint(deviceId)
           : legacyVolumeStoreEndpoint(deviceId);
       requestHost = endpoint.host;
