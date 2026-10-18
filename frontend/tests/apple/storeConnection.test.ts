@@ -45,6 +45,48 @@ const cases = [
 describe('store connection failover', () => {
   beforeEach(() => vi.resetAllMocks());
   it.each(cases)(
+    '%s retries an empty successful plist once',
+    async (_name, run) => {
+      vi.mocked(appleRequest)
+        .mockResolvedValueOnce({ ...ok, body: buildPlist({ songList: [] }) })
+        .mockResolvedValueOnce(ok);
+      await run();
+      expect(appleRequest).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(appleRequest).mock.calls[1][0].host).toBe(
+        'downloaddispatch.itunes.apple.com',
+      );
+    },
+  );
+  it.each(cases)('%s stops after two empty responses', async (_name, run) => {
+    vi.mocked(appleRequest).mockResolvedValue({ ...ok, body: buildPlist({}) });
+    await expect(run()).rejects.toThrow();
+    expect(appleRequest).toHaveBeenCalledTimes(2);
+  });
+  it.each(cases)(
+    '%s preserves Apple explanations without retry',
+    async (_name, run) => {
+      vi.mocked(appleRequest).mockResolvedValue({
+        ...ok,
+        body: buildPlist({
+          dialog: { explanation: 'Please review your account.' },
+        }),
+      });
+      await expect(run()).rejects.toThrow('Please review your account.');
+      expect(appleRequest).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each(cases)(
+    '%s does not retry explicit auth failures',
+    async (_name, run) => {
+      vi.mocked(appleRequest).mockResolvedValue({
+        ...ok,
+        body: buildPlist({ failureType: '2034' }),
+      });
+      await expect(run()).rejects.toThrow();
+      expect(appleRequest).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each(cases)(
     '%s switches once after TLS failure',
     async (_name, run, version) => {
       vi.mocked(appleRequest)
@@ -104,4 +146,3 @@ describe('store connection failover', () => {
     expect(isRetryableStoreConnectionError(new Error('ECONNRESET'))).toBe(true);
   });
 });
-

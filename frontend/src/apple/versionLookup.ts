@@ -1,4 +1,8 @@
 import { appleRequest } from './request';
+import {
+  storeResponseMessage,
+  shouldRetryEmptyStoreResponse,
+} from './storeResponse';
 import { isRetryableStoreConnectionError } from './storeConnection';
 import { buildPlist, parsePlist } from './plist';
 import { extractAndMergeCookies } from './cookies';
@@ -81,6 +85,23 @@ export async function getVersionMetadata(
 
     const dict = parsePlist(response.body) as Record<string, any>;
 
+    const responseMessage = storeResponseMessage(dict);
+    if (
+      shouldRetryEmptyStoreResponse(dict, response.status) &&
+      !triedRedownload
+    ) {
+      triedRedownload = true;
+      endpoint = redownloadEndpoint(deviceId);
+      requestHost = endpoint.host;
+      requestPath = endpoint.path;
+      redirectAttempt = 0;
+      continue;
+    }
+    if (!Array.isArray(dict.songList) || dict.songList.length === 0) {
+      if (responseMessage && !dict.failureType)
+        throw new Error(responseMessage);
+    }
+
     // volumeStore intermittently returns 5002; retry once via the redownload
     // dispatch endpoint, which serves the same payload.
     if (
@@ -96,7 +117,7 @@ export async function getVersionMetadata(
     }
 
     const songList = dict.songList as Record<string, any>[] | undefined;
-    if (!songList || songList.length === 0) {
+    if (!Array.isArray(songList) || songList.length === 0) {
       throw new Error('No items in response');
     }
 
